@@ -1,49 +1,6 @@
-name: Refresh LeetCode Cookies
-
-on:
-  schedule:
-    - cron: '0 0 * * 0'  # Every Sunday midnight
-  workflow_dispatch:  # Manual trigger bhi possible
-
-jobs:
-  refresh:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-
-      - name: Install Playwright
-        run: |
-          npm install playwright
-          npx playwright install chromium
-
-      - name: Fetch LeetCode Cookies
-        run: |
-          node -e "
-          const { chromium } = require('playwright');
-          (async () => {
-            const browser = await chromium.launch();
-            const page = await browser.newPage();
-            await page.goto('https://leetcode.com/accounts/login/');
-            await page.waitForTimeout(2000);
-            await page.fill('#id_login', '${{ secrets.LEETCODE_EMAIL }}');
-            await page.fill('#id_password', '${{ secrets.LEETCODE_PASSWORD }}');
-            await page.click('#btnSignin');
-            await page.waitForTimeout(3000);
-            const cookies = await page.context().cookies();
-            const session = cookies.find(c => c.name === 'LEETCODE_SESSION');
-            const csrf = cookies.find(c => c.name === 'csrftoken');
-            const https = require('https');
-            const data = JSON.stringify({ LEETCODE_SESSION: session.value, csrftoken: csrf.value });
-            const url = new URL('${{ secrets.N8N_WEBHOOK_URL }}');
-            const options = { hostname: url.hostname, path: url.pathname, method: 'POST', headers: { 'Content-Type': 'application/json' }};
-            const req = https.request(options, res => console.log('Status:', res.statusCode));
-            req.write(data);
-            req.end();
-            await browser.close();
-          })();
-          "
+- name: Fetch LeetCode Cookies
+        env:
+          LEETCODE_EMAIL: ${{ secrets.LEETCODE_EMAIL }}
+          LEETCODE_PASSWORD: ${{ secrets.LEETCODE_PASSWORD }}
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+        run: node scripts/fetch-cookies.js
